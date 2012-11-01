@@ -12,7 +12,7 @@
 */
 
 (function($){ 
-	jQuery.fn.extend({  
+    $.fn.extend({  
 		elastic: function() {
 		
 			//	We will create a div clone of the textarea
@@ -48,8 +48,8 @@
 					return false;
 				}
 					
-			var $textarea	= jQuery(this),
-				$twin		= jQuery('<div />').css({
+			var $textarea	= $(this),
+				$twin		= $('<div />').css({
 					'position'		: 'absolute',
 					'display'		: 'none',
 					'word-wrap'		: 'break-word',
@@ -86,7 +86,9 @@
 				
 				// Sets a given height and overflow state on the textarea
 				function setHeightAndOverflow(height, overflow){
-				
+                    if($textarea.data('cancel-resize') === "true") {
+                        return;
+                    }
 					var curratedHeight = Math.floor(parseInt(height,10));
 					if($textarea.height() !== curratedHeight){
 						$textarea.css({'height': curratedHeight + 'px','overflow':overflow});
@@ -125,6 +127,28 @@
 					
 				}
 				
+                //Detects manual resize
+                function removeAutoResizeOnManualResize() {
+                    $textarea.unbind(".manualresize");
+                    $(document).unbind(".manualresize");
+                    
+                    var mousedownListener = function() {
+                        var taTemp = $(this);
+                        taTemp.data('x', taTemp.outerWidth());
+                        taTemp.data('y', taTemp.outerHeight());
+                    };
+                    $textarea.bind("mousedown.manualresize", mousedownListener);
+                    
+                    var mouseupListener = function() {
+                        if ($textarea.outerWidth() != $textarea.data('x') || $textarea.outerHeight() != $textarea.data('y'))
+                        {
+                            $textarea.css("overflow-y", "auto");
+                            $textarea.data('cancel-resize', "true");
+                        }
+                    };
+                    $(document).bind("mouseup.manualresize", mouseupListener);
+                };
+
 				// Hide scrollbars
 				$textarea.css({'overflow':'hidden'});
 				
@@ -134,12 +158,16 @@
 				});
 				
 				// Update width of twin if browser or textarea is resized (solution for textareas with widths in percent)
-				jQuery(window).bind('resize', setTwinWidth);
+                $(window).bind('resize', setTwinWidth);
 				$textarea.bind('resize', setTwinWidth);
+                $textarea.bind('focus', setTwinWidth);
 				$textarea.bind('update', update);
 				
 				// Compact textarea on blur
 				$textarea.bind('blur',function(){
+                    if($textarea.data('cancel-resize') === "true") {
+                        return;
+                    }
 					if($twin.height() < maxheight){
 						if($twin.height() > minheight) {
 							$textarea.height($twin.height());
@@ -147,6 +175,15 @@
 							$textarea.height(minheight);
 						}
 					}
+				});
+
+                //Cancel auto resize on detection of manual resize 
+                $textarea.bind('focus', function ()
+                {
+                    setTimeout(function ()
+                    {
+                        removeAutoResizeOnManualResize();
+                    }, 1000);
 				});
 				
 				// And this line is to catch the browser paste event
